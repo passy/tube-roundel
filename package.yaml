@@ -1,0 +1,23 @@
+name:                tube-roundel
+version:             0.1.0.0
+synopsis:            Web service for generating TfL Tube Roundels
+description:         Please see README.md
+homepage:            https://github.com/passy/tube-roundel#readme
+license:             BSD3
+author:              Pascal Hartig
+maintainer:          phartig@rdrei.net
+copyright:           2016 Pascal Hartig
+category:            Web
+
+dependencies:
+  - base >= 4.7 && < 5
+  - servant
+  - servant-server
+  - wai
+  - warp
+  - base-compat
+
+executables:
+  tube-roundel:
+    source-dirs:      src
+    main:             Main.hs
