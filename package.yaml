@@ -11,11 +11,12 @@ category:            Web
 
 dependencies:
   - base >= 4.7 && < 5
+  - base-compat
+  - bytestring
   - servant
   - servant-server
   - wai
   - warp
-  - base-compat
 
 executables:
   tube-roundel:
