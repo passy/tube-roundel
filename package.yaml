@@ -16,6 +16,7 @@ dependencies:
   - servant
   - servant-server
   - text
+  - template
   - wai
   - warp
 
