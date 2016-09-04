@@ -87,12 +87,20 @@ renderRoundelTemplate
   :: MonadIO m
   => ColorHex -> ExceptT T.Text m TL.Text
 renderRoundelTemplate (ColorHex color) = do
-  tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
-  let context "colorHex" = color
-      context v =
-        error $ "Undefined template variable '" <> T.unpack v <> "' requested."
-  -- TODO: Consider using templateSafe/substituteA
-  return $ TT.substitute tmpl context
+  file <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
+  tmpl <-
+    case TT.templateSafe file of
+      Left _ -> throwError "Template parsing failed."
+      Right a -> return a
+  let table "colorHex" = pure color
+      table _ = Nothing
+      context key =
+        case table key of
+          Just a -> return a
+          Nothing ->
+            throwError $
+            "Undefined template variable '" <> key <> "' requested."
+  TT.renderA tmpl context
 
 custom500 :: T.Text -> ServantErr
 custom500 t =
