@@ -1,0 +1,94 @@
+# Copy these contents into the root directory of your Github project in a file
+# named .travis.yml
+
+# Use new container infrastructure to enable caching
+sudo: false
+
+# Choose a lightweight base image; we provide our own build tools.
+language: c
+
+# Caching so the next build will be fast too.
+cache:
+  directories:
+  - $HOME/.ghc
+  - $HOME/.cabal
+  - $HOME/.stack
+
+# The different configurations we want to test. We have BUILD=cabal which uses
+# cabal-install, and BUILD=stack which uses Stack. More documentation on each
+# of those below.
+#
+# We set the compiler values here to tell Travis to use a different
+# cache file per set of arguments.
+#
+# If you need to have different apt packages for each combination in the
+# matrix, you can use a line such as:
+#     addons: {apt: {packages: [libfcgi-dev,libgmp-dev]}}
+matrix:
+  include:
+  - env: BUILD=stack ARGS="--resolver nightly"
+    compiler: ": #stack nightly"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+before_install:
+# Using compiler above sets CC to an invalid value, so unset it
+- unset CC
+
+# We want to always allow newer versions of packages when building on GHC HEAD
+- CABALARGS=""
+- if [ "x$GHCVER" = "xhead" ]; then CABALARGS=--allow-newer; fi
+
+# Download and unpack the stack executable
+- export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.local/bin:$PATH
+- mkdir -p ~/.local/bin
+- |
+  if [ `uname` = "Darwin" ]
+  then
+    curl --insecure -L https://www.stackage.org/stack/osx-x86_64 | tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
+  else
+    curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+  fi
+
+install:
+- echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+- if [ -f configure.ac ]; then autoreconf -i; fi
+- |
+  case "$BUILD" in
+    stack)
+      stack --no-terminal --install-ghc $ARGS test --only-dependencies
+      ;;
+    cabal)
+      cabal --version
+      travis_retry cabal update
+      cabal install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1 $CABALARGS
+      ;;
+  esac
+
+script:
+- |
+  case "$BUILD" in
+    stack)
+      stack --no-terminal $ARGS test --haddock --no-haddock-deps
+      stack --no-terminal $ARGS install
+      ;;
+    cabal)
+      cabal configure --enable-tests --enable-benchmarks -v2 --ghc-options="-O0 -Werror"
+      cabal build
+      cabal check || [ "$CABALVER" == "1.16" ]
+      cabal test
+      cabal sdist
+      cabal copy
+      SRC_TGZ=$(cabal info . | awk '{print $2;exit}').tar.gz && \
+        (cd dist && cabal install --force-reinstalls "$SRC_TGZ")
+      ;;
+  esac
+- tar -cjvf tube-roundel.lnx64.tar.bz2 -C /home/travis/.local/bin/ tube-roundel
+
+deploy:
+  provider: releases
+  api_key:
+    secure: EIAL8WyMEG+rlpVde3Gf0y49CLtAH73Lj9gbf3SiOp1q1MjbeXZIr9gLHkRf2MHwkmKOMDRO41XzudBeyw5QWSjvTcq0jbakAvYp0TnOnhnj+eoNZqyTHtNEtaA443OafjruQV1xrA+5i78idYLWiFwbeZItZ8TnCmKg+5Wi4UM8bUmioaHaT/Ki6D9HXJWmTLPsYAreHbQCaZNcwI8LkgqL1sL3Eot/iyTgyLLsztgssRBe3pNz8bp1j/YPL8B9LKaJahMx7Uo54kE7hggdsiRPh74FyPc9CQ3QLFgMNiJJxaf0NtWZ3zk3tZE0KK86FNPe9pEbfzgWV2gty+OsygXKDAgyioGJM/B6fxHwcK9Mwvrw0yJwA/LWjUgTuYUOm2AgioXpwl8KQ7+5KjCVNlGOX4zhoqeD5l4nX6Ho15BEWvmMQGUQ95pnLnBAYFVMXlhoZMVkdf2c6GZr9n67nPT3JqI9uMS1hMw/DFEjGmJ2SmEf1xHR4nWsLuO2KDYCV7PEZPuPhQsTlTljjv6Xci7vsfIFD3u7nKsE9HVAQDAl9bn/8SeC7UoqgcUIa5qI5/g3qdHrROCYetxFtwKEBuTzdTRA+FHyqtjjb8aRFkRIFaNVyX5cjw32Em9H0HwLsrJbWmjSamEcLkBBl6H/Jn+1kQOdyWRdCEJuM/W3Q0U=
+  file: tube-roundel.lnx64.tar.bz2
+  skip-cleanup: true
+  on:
+    tags: true
