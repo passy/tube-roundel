@@ -29,5 +29,6 @@ executable tube-roundel
     , text
     , template
     , wai
+    , http-media
     , warp
   default-language: Haskell2010

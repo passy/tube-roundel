@@ -18,6 +18,7 @@ dependencies:
   - text
   - template
   - wai
+  - http-media
   - warp
 
 executables:
