@@ -46,24 +46,24 @@ data SVG
 instance Accept SVG where
   contentType _ = "image" // "svg+xml"
 
-instance MimeRender SVG a where
-  mimeRender _ a = "hello, world"
+instance MimeRender SVG TL.Text where
+  mimeRender _ = TL.encodeUtf8
 
 --
 -- ## API ##
 --
-type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] BS.ByteString
+type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] TL.Text
 
 api :: Proxy API
 api = Proxy
 
-roundelHandler :: ColorHex -> Handler BS.ByteString
+roundelHandler :: ColorHex -> Handler TL.Text
 roundelHandler (ColorHex color) = do
   tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
   -- TODO: Avoid partial function.
   let context "colorHex" = color
   -- TODO: Consider using templateSafe.
-  return $ BSL.toStrict . TL.encodeUtf8 $ TT.substitute tmpl context
+  return $ TT.substitute tmpl context
 
 server :: Server API
 server = roundelHandler
