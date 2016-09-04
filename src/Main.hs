@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -12,11 +13,19 @@ import Prelude ()
 import Prelude.Compat
 import Servant
 
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.IO.Class (liftIO, MonadIO)
+import Control.Monad.Except (ExceptT, throwError, runExceptT)
 import GHC.Generics (Generic)
+import Graphics.Svg (parseSvgFile)
+import Graphics.Rasterific.Svg
+       (renderSvgDocument, loadCreateFontCache)
 import Network.HTTP.Media ((//))
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp (runEnv)
+import Data.Monoid ((<>))
+import Codec.Picture.Types
+       (Image, PixelRGBA8, DynamicImage(ImageRGBA8))
+import Codec.Picture.Saving (imageToPng)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -43,30 +52,64 @@ instance FromHttpApiData ColorHex where
 
 data SVG
 
+data PNG
+
 instance Accept SVG where
   contentType _ = "image" // "svg+xml"
+
+instance Accept PNG where
+  contentType _ = "image" // "png"
 
 instance MimeRender SVG TL.Text where
   mimeRender _ = TL.encodeUtf8
 
+instance MimeRender PNG DynamicImage where
+  mimeRender _ = imageToPng
+
 --
 -- ## API ##
 --
-type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] TL.Text
+type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] TL.Text :<|> "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.png" :> Get '[PNG] DynamicImage
 
 api :: Proxy API
 api = Proxy
 
-roundelHandler :: ColorHex -> Handler TL.Text
-roundelHandler (ColorHex color) = do
+roundelSvgHandler :: ColorHex -> Handler TL.Text
+roundelSvgHandler (ColorHex color) = do
   tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
   -- TODO: Avoid partial function.
   let context "colorHex" = color
+      context v =
+        error $ "Undefined template variable '" <> T.unpack v <> "' requested."
   -- TODO: Consider using templateSafe.
   return $ TT.substitute tmpl context
 
+roundelPngHandler :: ColorHex -> Handler DynamicImage
+roundelPngHandler (ColorHex color) = do
+  tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
+  -- TODO: Get rid of "error"
+  let context "colorHex" = color
+      context v =
+        error $ "Undefined template variable '" <> T.unpack v <> "' requested."
+  let rendered = TT.substitute tmpl context
+  img <- runExceptT . renderSvgToPng $ BSL.toStrict $ TL.encodeUtf8 rendered
+  case img of
+    Left err -> error $ T.unpack err
+    Right img' -> return $ ImageRGBA8 img'
+
+renderSvgToPng
+  :: MonadIO m
+  => BS.ByteString -> ExceptT T.Text m (Image PixelRGBA8)
+renderSvgToPng input =
+  case parseSvgFile "/dev/null" input of
+    Nothing -> throwError "Error while loading SVG"
+    Just doc -> do
+      cache <- liftIO $ loadCreateFontCache "fonty-texture-cache"
+      (finalImage, _) <- liftIO $ renderSvgDocument cache Nothing 96 doc
+      return finalImage
+
 server :: Server API
-server = roundelHandler
+server = roundelSvgHandler :<|> roundelPngHandler
 
 app :: Application
 app = serve api server
