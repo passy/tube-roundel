@@ -13,13 +13,26 @@ dependencies:
   - base >= 4.7 && < 5
   - base-compat
   - bytestring
+  - http-media
+  - rasterific-svg
   - servant
   - servant-server
-  - text
   - template
+  - directory
+  - filepath
+  - svg-tree
+  - JuicyPixels
+  - FontyFruity
+  - text
   - wai
-  - http-media
   - warp
+
+ghc-options:
+  - -Wall
+  - -fwarn-tabs
+  - -fwarn-incomplete-record-updates
+  - -fwarn-monomorphism-restriction
+  - -fwarn-unused-do-bind
 
 executables:
   tube-roundel:
