@@ -8,6 +8,7 @@ RUN curl -L https://github.com/passy/tube-roundel/releases/download/$PROGVERSION
 
 COPY res/* /srv/res/
 WORKDIR /srv
+EXPOSE 8080
 ENTRYPOINT ["/srv/tube-roundel"]
 
 # vim:tw=0:
