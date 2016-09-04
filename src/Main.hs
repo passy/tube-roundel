@@ -14,7 +14,7 @@ import Prelude.Compat
 import Servant
 
 import Control.Monad.IO.Class (liftIO, MonadIO)
-import Control.Monad.Except (ExceptT, throwError, runExceptT)
+import Control.Monad.Except (ExceptT, throwError, withExceptT)
 import GHC.Generics (Generic)
 import Graphics.Svg (parseSvgFile)
 import Graphics.Rasterific.Svg
@@ -35,6 +35,15 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
 import qualified Data.Text.Template as TT
 import qualified Data.Char as Char
+
+--
+-- ## Constants ##
+--
+pngDpi :: Int
+pngDpi = 96
+
+fontCacheDirectory :: FilePath
+fontCacheDirectory = "fonty-texture-cache"
 
 --
 -- ## Custom Types ##
@@ -74,28 +83,39 @@ type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> 
 api :: Proxy API
 api = Proxy
 
-roundelSvgHandler :: ColorHex -> Handler TL.Text
-roundelSvgHandler (ColorHex color) = do
+renderRoundelTemplate
+  :: MonadIO m
+  => ColorHex -> ExceptT T.Text m TL.Text
+renderRoundelTemplate (ColorHex color) = do
   tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
-  -- TODO: Avoid partial function.
   let context "colorHex" = color
       context v =
         error $ "Undefined template variable '" <> T.unpack v <> "' requested."
-  -- TODO: Consider using templateSafe.
+  -- TODO: Consider using templateSafe/substituteA
   return $ TT.substitute tmpl context
 
+custom500 :: T.Text -> ServantErr
+custom500 t =
+  ServantErr
+  { errHTTPCode = 500
+  , errReasonPhrase = T.unpack t
+  , errBody = ""
+  , errHeaders = []
+  }
+
+with500
+  :: MonadIO m
+  => ExceptT T.Text m a -> ExceptT ServantErr m a
+with500 = withExceptT custom500
+
+roundelSvgHandler :: ColorHex -> Handler TL.Text
+roundelSvgHandler = with500 . renderRoundelTemplate
+
 roundelPngHandler :: ColorHex -> Handler DynamicImage
-roundelPngHandler (ColorHex color) = do
-  tmpl <- liftIO $ TIO.readFile "res/roundel-no-text.svg.tpl"
-  -- TODO: Get rid of "error"
-  let context "colorHex" = color
-      context v =
-        error $ "Undefined template variable '" <> T.unpack v <> "' requested."
-  let rendered = TT.substitute tmpl context
-  img <- runExceptT . renderSvgToPng $ BSL.toStrict $ TL.encodeUtf8 rendered
-  case img of
-    Left err -> error $ T.unpack err
-    Right img' -> return $ ImageRGBA8 img'
+roundelPngHandler color = do
+  tmpl <- with500 $ renderRoundelTemplate color
+  img <- with500 . renderSvgToPng $ BSL.toStrict $ TL.encodeUtf8 tmpl
+  return $ ImageRGBA8 img
 
 renderSvgToPng
   :: MonadIO m
@@ -104,7 +124,7 @@ renderSvgToPng input =
   case parseSvgFile "/dev/null" input of
     Nothing -> throwError "Error while loading SVG"
     Just doc -> do
-      cache <- liftIO $ loadCreateFontCache "fonty-texture-cache"
+      cache <- liftIO $ loadCreateFontCache fontCacheDirectory
       (finalImage, _) <- liftIO $ renderSvgDocument cache Nothing 96 doc
       return finalImage
 
