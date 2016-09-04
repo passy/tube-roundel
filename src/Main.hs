@@ -13,24 +13,19 @@ import Prelude ()
 import Prelude.Compat
 import Servant
 
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad (when)
+import Control.Monad.IO.Class (liftIO, MonadIO)
+import Control.Monad.Except (ExceptT, throwError, runExceptT)
 import GHC.Generics (Generic)
 import Graphics.Svg (parseSvgFile)
 import Graphics.Rasterific.Svg
-       (renderSvgDocument, pdfOfSvgDocument)
-import System.FilePath ((</>))
+       (renderSvgDocument, loadCreateFontCache)
 import Network.HTTP.Media ((//))
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp (runEnv)
 import Data.Monoid ((<>))
-import System.Directory (getTemporaryDirectory)
 import Codec.Picture.Types
        (Image, PixelRGBA8, DynamicImage(ImageRGBA8))
 import Codec.Picture.Saving (imageToPng)
-
-import Graphics.Rasterific.Svg (loadCreateFontCache)
-import Graphics.Text.TrueType (FontCache)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -97,19 +92,21 @@ roundelPngHandler (ColorHex color) = do
       context v =
         error $ "Undefined template variable '" <> T.unpack v <> "' requested."
   let rendered = TT.substitute tmpl context
-  img <- liftIO . renderSvgToPng $ BSL.toStrict $ TL.encodeUtf8 rendered
+  img <- runExceptT . renderSvgToPng $ BSL.toStrict $ TL.encodeUtf8 rendered
   case img of
     Left err -> error $ T.unpack err
     Right img' -> return $ ImageRGBA8 img'
 
-renderSvgToPng :: BS.ByteString -> IO (Either T.Text (Image PixelRGBA8))
+renderSvgToPng
+  :: MonadIO m
+  => BS.ByteString -> ExceptT T.Text m (Image PixelRGBA8)
 renderSvgToPng input =
   case parseSvgFile "/dev/null" input of
-    Nothing -> return $ Left "Error while loading SVG"
+    Nothing -> throwError "Error while loading SVG"
     Just doc -> do
-      cache <- loadCreateFontCache "fonty-texture-cache"
-      (finalImage, _) <- renderSvgDocument cache Nothing 96 doc
-      return $ Right finalImage
+      cache <- liftIO $ loadCreateFontCache "fonty-texture-cache"
+      (finalImage, _) <- liftIO $ renderSvgDocument cache Nothing 96 doc
+      return finalImage
 
 server :: Server API
 server = roundelSvgHandler :<|> roundelPngHandler
