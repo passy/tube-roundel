@@ -25,6 +25,7 @@ dependencies:
   - text
   - wai
   - warp
+  - protolude
 
 ghc-options:
   - -Wall
