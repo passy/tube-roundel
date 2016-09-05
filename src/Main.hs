@@ -78,7 +78,8 @@ instance MimeRender PNG DynamicImage where
 --
 -- ## API ##
 --
-type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] TL.Text :<|> "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.png" :> Get '[PNG] DynamicImage
+type API = "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.svg" :> Get '[SVG] TL.Text
+      :<|> "roundel" :> "no-text" :> Capture "color" ColorHex :> "image.png" :> Get '[PNG] DynamicImage
 
 api :: Proxy API
 api = Proxy
