@@ -20,6 +20,7 @@ dependencies:
   - rasterific-svg
   - servant
   - servant-server
+  - servant-JuicyPixels
   - svg-tree
   - template
   - text
