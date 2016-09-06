@@ -9,7 +9,8 @@
 
 module Main where
 
-import Protolude hiding (Handler)
+import Prelude ()
+import Prelude.Compat
 import Servant
 
 import Control.Monad.IO.Class (liftIO, MonadIO)
@@ -21,6 +22,7 @@ import Graphics.Rasterific.Svg
 import Network.HTTP.Media ((//))
 import Network.Wai (Application)
 import Network.Wai.Handler.Warp (runEnv)
+import Data.Monoid ((<>))
 import Codec.Picture.Types
        (Image, PixelRGBA8, DynamicImage(ImageRGBA8))
 import Codec.Picture.Saving (imageToPng)

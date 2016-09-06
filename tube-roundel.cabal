@@ -1,0 +1,40 @@
+-- This file has been generated from package.yaml by hpack version 0.14.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           tube-roundel
+version:        0.1.0.0
+synopsis:       Web service for generating TfL Tube Roundels
+description:    Please see README.md
+category:       Web
+homepage:       https://github.com/passy/tube-roundel#readme
+author:         Pascal Hartig
+maintainer:     phartig@rdrei.net
+copyright:      2016 Pascal Hartig
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+executable tube-roundel
+  main-is: Main.hs
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -fwarn-tabs -fwarn-incomplete-record-updates -fwarn-monomorphism-restriction -fwarn-unused-do-bind
+  build-depends:
+      base >= 4.7 && < 5
+    , base-compat
+    , bytestring
+    , FontyFruity
+    , http-media
+    , JuicyPixels
+    , mtl
+    , rasterific-svg
+    , servant
+    , servant-server
+    , svg-tree
+    , template
+    , text
+    , wai
+    , warp
+  default-language: Haskell2010
