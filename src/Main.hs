@@ -23,7 +23,7 @@ import Network.Wai (Application)
 import Network.Wai.Handler.Warp (runEnv)
 import Codec.Picture.Types
        (Image, PixelRGBA8, DynamicImage(ImageRGBA8))
-import Codec.Picture.Saving (imageToPng)
+import Servant.JuicyPixels (PNG)
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -59,19 +59,11 @@ instance FromHttpApiData ColorHex where
 
 data SVG
 
-data PNG
-
 instance Accept SVG where
   contentType _ = "image" // "svg+xml"
 
-instance Accept PNG where
-  contentType _ = "image" // "png"
-
 instance MimeRender SVG TL.Text where
   mimeRender _ = TL.encodeUtf8
-
-instance MimeRender PNG DynamicImage where
-  mimeRender _ = imageToPng
 
 --
 -- ## API ##
