@@ -1,5 +1,5 @@
 name:                tube-roundel
-version:             0.1.0.2
+version:             0.1.0.3
 synopsis:            Web service for generating TfL Tube Roundels
 description:         Please see README.md
 homepage:            https://github.com/passy/tube-roundel#readme
