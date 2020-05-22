@@ -2,24 +2,19 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Main where
 
-import Protolude hiding (Handler)
+import Protolude
 import Servant
 
-import Control.Monad.IO.Class (liftIO, MonadIO)
-import Control.Monad.Except (ExceptT, throwError, withExceptT)
-import GHC.Generics (Generic)
 import Graphics.Svg (parseSvgFile)
 import Graphics.Rasterific.Svg
        (renderSvgDocument, loadCreateFontCache)
 import Network.HTTP.Media ((//))
-import Network.Wai (Application)
 import Network.Wai.Handler.Warp (runEnv)
 import Codec.Picture.Types
        (Image, PixelRGBA8, DynamicImage(ImageRGBA8))
@@ -95,9 +90,9 @@ renderRoundelTemplate (ColorHex color) = do
             "Undefined template variable '" <> key <> "' requested."
   TT.renderA tmpl context
 
-custom500 :: T.Text -> ServantErr
+custom500 :: T.Text -> ServerError
 custom500 t =
-  ServantErr
+  ServerError
   { errHTTPCode = 500
   , errReasonPhrase = T.unpack t
   , errBody = ""
@@ -105,9 +100,8 @@ custom500 t =
   }
 
 with500
-  :: MonadIO m
-  => ExceptT T.Text m a -> ExceptT ServantErr m a
-with500 = withExceptT custom500
+  :: ExceptT T.Text IO a -> Handler a
+with500 = Handler . withExceptT custom500
 
 roundelSvgHandler :: ColorHex -> Handler TL.Text
 roundelSvgHandler = with500 . renderRoundelTemplate
